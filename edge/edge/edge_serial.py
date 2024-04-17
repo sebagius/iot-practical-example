@@ -12,11 +12,12 @@ class EdgeSerial:
 
     def send_status(self, uid, status):
         msg = uid + b'\x00\x00\x00' + (b'\xda' if status else b'\x00')
-        print(msg)
-        checksum = binascii.crc32(msg + _SECRET).to_bytes(4, 'big')
+        #print(msg)
+        checksum = binascii.crc32(msg + _SECRET).to_bytes(4, 'little')
+        #print(checksum)
         self.serial.write(msg)
         self.serial.write(b'\n')
         self.serial.write(checksum)
-        self.serial.write(b'\n')
+        #self.serial.write(b'\n') not needed coz checksum always 4 bytes
 
         print(self.serial.readline())

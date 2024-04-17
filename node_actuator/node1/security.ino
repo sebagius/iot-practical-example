@@ -10,9 +10,8 @@ void printuint8_t(uint8_t* st, size_t len)
 {
   for(int i = 0; i < len; i++)
   {
-    Serial.print(st[i]);
+    Serial.write(st[i]);
   }
-  Serial.println();
 }
 
 void createChecksum(uint8_t* data, size_t length, uint32_t* checksum, uint8_t* salt, size_t saltLength)
@@ -21,18 +20,13 @@ void createChecksum(uint8_t* data, size_t length, uint32_t* checksum, uint8_t* s
   uint8_t* salty = malloc(totalLength);
   memcpy(salty, data, length);
   memcpy(salty+length, salt, saltLength);
-  uint32_t check = CRC32::calculate(salty, totalLength);
+  *checksum = CRC32::calculate(salty, totalLength);
   free(salty);
-  *checksum = check;
 }
 
 bool verifyChecksum(uint8_t* data, size_t length, uint32_t checksum, uint8_t* salt, size_t saltLength)
 {
-  uint32_t* check = malloc(sizeof(uint32_t));
-  createChecksum(data, length, check, salt, saltLength);
-  Serial.println("verifying data:");  
-  Serial.println(*check);
-  Serial.println("\n");
-
-  return *check == checksum;
+  uint32_t check = 0;
+  createChecksum(data, length, &check, salt, saltLength);
+  return check == checksum;
 }

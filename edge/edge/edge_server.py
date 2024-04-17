@@ -11,7 +11,6 @@ class EdgeServer(tcpserver.SecureTCPServer):
         self.edgeserial = edge_serial.EdgeSerial(DEVICE)
 
     def handleMessage(self, message):
-        print(message) # we made it !!!!
 
         self.edgeserial.send_status(message, True) # id and auth = true
         #TODO: check db, and send result over serial to arduino
