@@ -30,7 +30,7 @@ void updateDisplay(unsigned char tb[16])
  
   /* brightness */
   IIC_start();
-  IIC_send(0x01);
+  IIC_send(0x8A);
   IIC_end();
 }
 

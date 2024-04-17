@@ -12,6 +12,13 @@ class TCPServer:
         self._port = port
         self.running = False
 
+    def _is_client_alive(self, client):
+        try:
+            client.getpeername()
+            return True
+        except:
+            return False
+
     def start_server(self):
         self._socket.bind((self._host, self._port))
         self._socket.listen(1) # we only have one iot node so for the purpose of the practical we only accept one connection at a time
@@ -24,13 +31,6 @@ class TCPServer:
 
             if self._is_client_alive(client_socket):
                 client_socket.close() # safely close if it isn't closed
-
-    def _is_client_alive(self, client):
-        try:
-            client.getpeername()
-            return True
-        except:
-            return False
 
     def _handleMessage(self, msg):
         raise NotImplementedError
@@ -48,8 +48,11 @@ class TCPServer:
                 print("Failed to read data closing connection")
                 return
             
-            if b'\n' in buffer: #NOTE: May need to potentially process multiple messages in a single buffer but not sure yet
-                self._handleMessage(buffer[0:len(buffer)-1])
+            if bytearray([0x00,0x00,0x00]) in buffer: #NOTE: May need to potentially process multiple messages in a single buffer but not sure yet
+                msgs = buffer.split(b'\x00\x00\x00')
+
+                for x in msgs:
+                    self._handleMessage(x)
                 
                 buffer = b'' # clear buffer ofc
                 continue
@@ -63,20 +66,18 @@ class SecureTCPServer(TCPServer):
         raise NotImplementedError
         pass
 
-    def _verifyMessage(data, checksum):
-        check = binascii.crc32(data + _SECRET)
+    def _verifyMessage(self, data, checksum):
+        check = binascii.crc32(data + _SECRET).to_bytes(4, 'big')
         return check == checksum
 
     def _handleMessage(self, msg):
-        util.print_hex(msg)
-
         if not self._stored_msg:
             self._stored_msg = msg
             return
-        res = _verifyMessage(self._stored_msg, msg)
+        res = self._verifyMessage(self._stored_msg, msg)
         process = self._stored_msg
         self._stored_msg = None
         if not res:
             return # discard message silently (someone is most likely trying to mitm
 
-        self.handleMessage(self.process)
+        self.handleMessage(process)
