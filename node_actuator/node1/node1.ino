@@ -1,6 +1,9 @@
 #import <CRC32.h>
+#import <Servo.h>
+
 #import "ledmatrix.h"
 #import "security.h"
+
 
 //unsigned char table[16] = {0x00, 0x3E, 0x28, 0x28, 0x16, 0x00, 0x3E, 0x00, 0x26, 0x2A, 0x32, 0x00, 0x26, 0x2A, 0x32, 0x00};
 unsigned char table[16] = {0x00, 0x32, 0x2A, 0x26, 0x00, 0x32, 0x2A, 0x26, 0x00, 0x3E, 0x00, 0x16, 0x28, 0x28, 0x3E, 0x00};
@@ -10,11 +13,17 @@ size_t ourSecretLen = 28;
 uint8_t* currentMessage;
 size_t currentMessageLen;
 
+Servo doorLock;
+int pos = 0;
+
 void setup()
 {
   Serial.begin(9600);
   setupDisplay();
   updateDisplay(table);
+  doorLock.attach(3);
+  doorLock.write(pos);
+  delay(1000);
 }
 
 void writeuintarray(uint8_t* d, size_t len)
@@ -53,6 +62,12 @@ int readPacket(char* msg, int len, uint8_t** uid, bool* auth)
 
 void loop()
 {
+  if(pos != 0)
+  {
+    pos = 0;
+    doorLock.write(pos);
+    delay(2000);
+  }
   //updateDisplay(table);
   if(Serial.available() == 0)
   {
@@ -89,6 +104,14 @@ void loop()
   char* tab = calloc(sizeof(char), 16);
   memcpy(tab, uid, uidLen);
   updateDisplay(tab);
-  Serial.write("\n");
-  delay(100);
+  if(!*auth)
+  {
+    free(auth);
+    delay(100);
+    return;
+  }
+  free(auth);
+  pos = 180;
+  doorLock.write(pos);
+  delay(5000);
 }

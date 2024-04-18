@@ -20,4 +20,4 @@ class EdgeSerial:
         self.serial.write(checksum)
         #self.serial.write(b'\n') not needed coz checksum always 4 bytes
 
-        print(self.serial.readline())
+        #print(self.serial.readline())
