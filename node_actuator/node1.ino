@@ -1,17 +1,29 @@
 #import <CRC32.h>
+#import <Servo.h>
+
 #import "ledmatrix.h"
 #import "security.h"
+
 
 //unsigned char table[16] = {0x00, 0x3E, 0x28, 0x28, 0x16, 0x00, 0x3E, 0x00, 0x26, 0x2A, 0x32, 0x00, 0x26, 0x2A, 0x32, 0x00};
 unsigned char table[16] = {0x00, 0x32, 0x2A, 0x26, 0x00, 0x32, 0x2A, 0x26, 0x00, 0x3E, 0x00, 0x16, 0x28, 0x28, 0x3E, 0x00};
 uint8_t* ourSecret = "thisisasmallstepforsecurity!";
+size_t ourSecretLen = 28;
 
 uint8_t* currentMessage;
+size_t currentMessageLen;
+
+Servo doorLock;
+int pos = 0;
 
 void setup()
 {
   Serial.begin(9600);
   setupDisplay();
+  updateDisplay(table);
+  doorLock.attach(3);
+  doorLock.write(pos);
+  delay(1000);
 }
 
 void writeuintarray(uint8_t* d, size_t len)
@@ -21,6 +33,8 @@ void writeuintarray(uint8_t* d, size_t len)
     Serial.write(d[i]);
   }
 }
+
+uint8_t magic = 0xda;
 
 int readPacket(char* msg, int len, uint8_t** uid, bool* auth)
 {
@@ -32,10 +46,8 @@ int readPacket(char* msg, int len, uint8_t** uid, bool* auth)
     if(zeroPacks == 3)
     {
       *uid = malloc(i-3);
-      auth = malloc(1);
       memcpy(*uid, msg, i-3);
-      *auth = msg[i+1] == 218; // or 0xda our magic auth number!!
-      writeuintarray(*uid, i-3);
+      *auth = (uint8_t)msg[i] == magic; // or 0xda our magic auth number!!
       return i-3;
     }
     if(msg[i] == 0) // gap byte
@@ -50,10 +62,13 @@ int readPacket(char* msg, int len, uint8_t** uid, bool* auth)
 
 void loop()
 {
-  //uint8_t* testdata = "hellooo";
-  //verifyChecksum(testdata, 7, 0x00000001, ourSecret, 28);
-  //Serial.print("uhhh");
-  updateDisplay(table);
+  if(pos != 0)
+  {
+    pos = 0;
+    doorLock.write(pos);
+    delay(2000);
+  }
+  //updateDisplay(table);
   if(Serial.available() == 0)
   {
     delay(100);
@@ -66,18 +81,37 @@ void loop()
     delay(100);
     return;
   }
+  currentMessage = msg.c_str();
+  currentMessageLen = msg.length();
   uint8_t* uid;
-  bool* auth;
-  int uidLen = readPacket(msg.c_str(), msg.length(), &uid, auth);
+  bool *auth = malloc(sizeof(bool));
+  int uidLen = readPacket(currentMessage, currentMessageLen, &uid, auth);
   if(uidLen == 0)
   {
     delay(100);
     return;
   }
-  writeuintarray(uid, uidLen);
-  //Serial.write((uint8_t)auth);
-  Serial.print("  ");
-  Serial.write(uidLen);
-  Serial.write("\n");
-  delay(100);
+  unsigned char* buf = malloc(4);
+  Serial.readBytes(buf, 4);
+  uint32_t checks = 0;
+  memcpy(&checks, buf, 4);
+  bool verify = verifyChecksum(currentMessage, currentMessageLen, checks, ourSecret, 28);
+  if(!verify)
+  {
+    delay(100);
+    return;
+  }
+  char* tab = calloc(sizeof(char), 16);
+  memcpy(tab, uid, uidLen);
+  updateDisplay(tab);
+  if(!*auth)
+  {
+    free(auth);
+    delay(100);
+    return;
+  }
+  free(auth);
+  pos = 180;
+  doorLock.write(pos);
+  delay(5000);
 }
